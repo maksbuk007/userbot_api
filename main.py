@@ -48,8 +48,11 @@ async def get_votes(chat_id: int, message_id: int):
                 option=option.option,
                 limit=100
             ))
+            
+            # ИСПРАВЛЕННЫЙ БЛОК: правильно достаем user_id из объекта peer
             for vote in result.votes:
-                voter_ids.add(vote.user_id)
+                if hasattr(vote, 'peer') and hasattr(vote.peer, 'user_id'):
+                    voter_ids.add(vote.peer.user_id)
 
         return {"voters": list(voter_ids)}
 
