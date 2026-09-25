@@ -22,6 +22,10 @@ async def startup_event():
 async def shutdown_event():
     await client.disconnect()
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Userbot API is running"}
+
 @app.get("/get_votes")
 async def get_votes(chat_id: int, message_id: int):
     if not await client.is_user_authorized():
