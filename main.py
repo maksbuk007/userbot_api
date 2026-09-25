@@ -1,15 +1,32 @@
 import os
 import asyncio
+import threading
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.functions.messages import GetPollVotesRequest
+from fastapi import FastAPI
+import uvicorn
 
-# Определяем путь к файлу ключа (Render сохраняет секретные файлы в /etc/secrets/)
+# --- ЧАСТЬ 1: Веб-сервер заглушка для Render ---
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "alive"}
+
+def run_web_server():
+    # Render сам передаст нужный порт в переменную PORT
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Запуск веб-сервера заглушки на порту {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+# --- ЧАСТЬ 2: Ваш основной код воркера Telegram + Firebase ---
 KEY_PATH = "/etc/secrets/firebase_key.json" if os.path.exists("/etc/secrets/firebase_key.json") else "firebase_key.json"
 
-# Инициализируем Firebase
 if not firebase_admin._apps:
     cred = credentials.Certificate(KEY_PATH)
     firebase_admin.initialize_app(cred)
@@ -66,17 +83,22 @@ async def worker_loop():
     
     while True:
         try:
-            # Ищем новые задачи
-            docs = db.collection('poll_jobs').where('status', '==', 'pending').limit(3).stream()
+            # Исправлено предупреждение Firestore (используем FieldFilter)
+            docs = db.collection('poll_jobs').where(filter=FieldFilter('status', '==', 'pending')).limit(3).stream()
             for doc in docs:
-                # Меняем статус, чтобы не обрабатывать задачу дважды
                 db.collection('poll_jobs').document(doc.id).update({'status': 'processing'})
                 await process_job(doc.id, doc.to_dict())
         except Exception as e:
             print(f"Ошибка опроса Firebase: {e}")
         
-        # Задержка перед следующей проверкой
         await asyncio.sleep(2.5)
 
+
+# --- ЧАСТЬ 3: Точка запуска ---
 if __name__ == "__main__":
+    # 1. Запускаем веб-сервер в отдельном фоновом потоке
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+    
+    # 2. Запускаем ваш основной цикл воркера в главном потоке
     asyncio.run(worker_loop())
