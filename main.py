@@ -6,10 +6,14 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.functions.messages import GetPollVotesRequest
 
+# Определяем путь к файлу ключа (Render сохраняет секретные файлы в /etc/secrets/)
+KEY_PATH = "/etc/secrets/firebase_key.json" if os.path.exists("/etc/secrets/firebase_key.json") else "firebase_key.json"
+
 # Инициализируем Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase_key.json")
+    cred = credentials.Certificate(KEY_PATH)
     firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
 API_ID = int(os.environ.get("API_ID", 0))
