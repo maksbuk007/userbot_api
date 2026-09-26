@@ -10,12 +10,17 @@ from telethon.tl.functions.messages import GetPollVotesRequest
 from fastapi import FastAPI
 import uvicorn
 
-# --- ЧАСТЬ 1: Веб-сервер заглушка для Render ---
+# --- Веб-сервер заглушка для Render ---
 app = FastAPI()
 
 @app.get("/")
 def read_root():
     return {"status": "alive"}
+
+# Уникальный скрытый маршрут для предотвращения засыпания
+@app.get("/healthz_bot_ping")
+def keep_alive():
+    return {"status": "ok", "worker": "active"}
 
 def run_web_server():
     # Render сам передаст нужный порт в переменную PORT
@@ -23,8 +28,7 @@ def run_web_server():
     print(f"Запуск веб-сервера заглушки на порту {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
-
-# --- ЧАСТЬ 2: Ваш основной код воркера Telegram + Firebase ---
+# --- основной код воркера Telegram + Firebase ---
 KEY_PATH = "/etc/secrets/firebase_key.json" if os.path.exists("/etc/secrets/firebase_key.json") else "firebase_key.json"
 
 if not firebase_admin._apps:
@@ -94,7 +98,7 @@ async def worker_loop():
         await asyncio.sleep(2.5)
 
 
-# --- ЧАСТЬ 3: Точка запуска ---
+# --- Точка запуска ---
 if __name__ == "__main__":
     # 1. Запускаем веб-сервер в отдельном фоновом потоке
     web_thread = threading.Thread(target=run_web_server, daemon=True)
