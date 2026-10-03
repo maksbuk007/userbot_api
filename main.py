@@ -46,10 +46,30 @@ client = TelegramClient(StringSession(USERBOT_SESSION), API_ID, API_HASH)
 async def process_job(job_id: str, data: dict):
     chat_id = data.get('chat_id')
     message_id = data.get('message_id')
+    poll_id = data.get('poll_id')
     voter_ids = set()
 
     try:
         entity = await client.get_entity(chat_id)
+        
+        # Если message_id нет, но есть poll_id — ищем сообщение в истории
+        if not message_id and poll_id:
+            async for msg in client.iter_messages(entity, limit=100):
+                # В Telethon ID опроса лежит внутри msg.poll.poll.id
+                if msg.poll and hasattr(msg.poll, 'poll') and str(msg.poll.poll.id) == str(poll_id):
+                    message_id = msg.id
+                    break
+            
+            if not message_id:
+                print(f"❌ Опрос с poll_id {poll_id} не найден в последних 100 сообщениях.")
+                # Завершаем задачу с пустым списком, чтобы бот не ждал вечно
+                db.collection('poll_jobs').document(job_id).update({
+                    'status': 'completed',
+                    'voters': []
+                })
+                return
+
+        # Стандартная обработка, если message_id известен
         message = await client.get_messages(entity, ids=message_id)
         
         if message and message.poll:
