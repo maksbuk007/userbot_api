@@ -54,14 +54,14 @@ async def process_job(job_id: str, data: dict):
         
         # Если message_id нет, но есть poll_id — ищем сообщение в истории
         if not message_id and poll_id:
-            async for msg in client.iter_messages(entity, limit=100):
+            async for msg in client.iter_messages(entity, limit=1000):
                 # В Telethon ID опроса лежит внутри msg.poll.poll.id
                 if msg.poll and hasattr(msg.poll, 'poll') and str(msg.poll.poll.id) == str(poll_id):
                     message_id = msg.id
                     break
             
             if not message_id:
-                print(f"❌ Опрос с poll_id {poll_id} не найден в последних 100 сообщениях.")
+                print(f"❌ Опрос с poll_id {poll_id} не найден в последних 1000 сообщениях.")
                 # Завершаем задачу с пустым списком, чтобы бот не ждал вечно
                 db.collection('poll_jobs').document(job_id).update({
                     'status': 'completed',
